@@ -20,6 +20,7 @@
     private const string TfsUrl = @"http://tfs.dthomas.co.uk:8080/tfs/ImagoBOCollection";
     private static BuildHttpClient buildClient;
 
+    private static ApplicationArguments applicationArguments;
 
     static void Main(string[] args)
     {
@@ -29,24 +30,24 @@
       buildClient = new BuildHttpClient(new Uri(TfsUrl), new VssAadCredential());
 
       // Parse the command line args ...
-      var arguments = ParseArgs(args, out hasErrors);
+      applicationArguments = ParseArgs(args, out hasErrors);
 
-      if (hasErrors || arguments.Help)
+      // Display usage if requested, or on error ...
+      if (hasErrors || applicationArguments.Help)
       {
         ShowUsage();
+        return;
       }
-      else
-      {
-        if (arguments.DefinitionId != -1)
-        {
-          TriggerBuild(arguments.DefinitionId);
-        }
-        else
-        {
-          DisplayBuildDefinitionStatuses();
-        }
 
+      // Trigger build if build definition id supplied ...
+      if (applicationArguments.DefinitionId != -1)
+      {
+        TriggerBuild(applicationArguments.DefinitionId);
+        return;
       }
+
+      // Just display build statuses ...
+      DisplayBuildDefinitionStatuses();
 
     }
 
@@ -56,7 +57,7 @@
     private static void ShowUsage()
     {
       var output =
-        $"Displays list of build definitions and statuses\n\nSupported options:\n\n/d [build definition id] - Queue build with specified definition id\n/? - Display this message";
+        $"Displays list of build definitions and statuses\n\nSupported options:\n\n  /d [build definition id]\t- Queue build with specified definition id\n  /?\t\t\t\t- Display this message";
       Console.WriteLine(output);
     }
 
@@ -105,9 +106,7 @@
 
         Console.WriteLine("Build Triggered ...\n");
 
-        // The following outputs the triggered build details in a nice table ...
-        var formatter = new TableFormatter();
-        var objects = new List<BuildInfo>
+        var buildInfoList = new List<BuildInfo>
                         {
                           new BuildInfo
                             {
@@ -119,8 +118,7 @@
                             }
                         };
 
-        var text = formatter.FormatObjects(objects);
-        Console.WriteLine(text);
+        DisplayBuildInfoTable(buildInfoList);
       }
       catch (Exception)
       {
@@ -144,9 +142,7 @@
 
       Console.WriteLine($"Found {builds.Count()} builds\n");
 
-      // The following outputs the build details in a nice table ...
-      var formatter = new TableFormatter();
-      var objects = new List<BuildInfo>();
+      var buildInfoList = new List<BuildInfo>();
 
       foreach (var build in builds)
       {
@@ -160,12 +156,18 @@
         };
 
 
-        objects.Add(tmp);
+        buildInfoList.Add(tmp);
       }
 
-      var text = formatter.FormatObjects(objects);
-      Console.WriteLine(text);
+      DisplayBuildInfoTable(buildInfoList);
     }
 
+    private static void DisplayBuildInfoTable(List<BuildInfo> buildInfoList)
+    {
+      // The following outputs the build details in a nice table ...
+      var formatter = new TableFormatter();
+      var text = formatter.FormatObjects(buildInfoList);
+      Console.WriteLine(text);
+    }
   }
 }
