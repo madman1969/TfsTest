@@ -1,175 +1,171 @@
-﻿namespace TfsTest
+﻿namespace TfsTool
 {
   using System;
   using System.Collections.Generic;
+  using System.Globalization;
   using System.Linq;
-  using System.Net;
 
-  using Microsoft.TeamFoundation.Build.Client;
+  using Fclp;
+
   using Microsoft.TeamFoundation.Build.WebApi;
-  using Microsoft.TeamFoundation.Client;
-  using Microsoft.TeamFoundation.VersionControl.Client;
+  using Microsoft.TeamFoundation.Core.WebApi;
   using Microsoft.VisualStudio.Services.Client;
   using Microsoft.VisualStudio.Services.WebApi;
 
   using Tababular;
 
-  using BuildQueryOrder = Microsoft.TeamFoundation.Build.Client.BuildQueryOrder;
-
   static class Program
   {
+    private const string TeamProjectName = "ImagoPortal";
+    private const string TfsUrl = @"http://tfs.dthomas.co.uk:8080/tfs/ImagoBOCollection";
+    private static BuildHttpClient buildClient;
+
+
     static void Main(string[] args)
     {
-      GetBuildStatus();
+      var hasErrors = false;
+
+      // Assume ImagoPortal and current user credentials ...
+      buildClient = new BuildHttpClient(new Uri(TfsUrl), new VssAadCredential());
+
+      // Parse the command line args ...
+      var arguments = ParseArgs(args, out hasErrors);
+
+      if (hasErrors || arguments.Help)
+      {
+        ShowUsage();
+      }
+      else
+      {
+        if (arguments.DefinitionId != -1)
+        {
+          TriggerBuild(arguments.DefinitionId);
+        }
+        else
+        {
+          DisplayBuildDefinitionStatuses();
+        }
+
+      }
+
     }
 
-    private static void GetBuildStatus()
+    /// <summary>
+    /// Displays a usage summary.
+    /// </summary>
+    private static void ShowUsage()
     {
-      const string TfsUrl = @"http://tfs.dthomas.co.uk:8080/tfs/ImagoBOCollection";
-      var buildClient = new BuildHttpClient(new Uri(TfsUrl), new VssAadCredential());
-      var definitions = buildClient.GetDefinitionsAsync(project: "ImagoPortal");
+      var output =
+        $"Displays list of build definitions and statuses\n\nSupported options:\n\n/d [build definition id] - Queue build with specified definition id\n/? - Display this message";
+      Console.WriteLine(output);
+    }
 
+    /// <summary>
+    /// Parses the command line arguments.
+    /// </summary>
+    /// <param name="args">The arguments.</param>
+    /// <param name="hasErrors">if set to <c>true</c> [has errors].</param>
+    /// <returns></returns>
+    private static ApplicationArguments ParseArgs(string[] args, out bool hasErrors)
+    {
+      // create a generic parser for the ApplicationArguments type
+      var p = new FluentCommandLineParser<ApplicationArguments>();
 
+      p.Setup(arg => arg.DefinitionId).As('d', "definitionid").SetDefault(-1);
 
-      var builds = buildClient.GetBuildsAsync("ImagoPortal")
+      p.Setup(arg => arg.Help).As('?', "help").SetDefault(false);
+
+      var result = p.Parse(args);
+      hasErrors = result.HasErrors;
+
+      return p.Object;
+    }
+
+    /// <summary>
+    /// Triggers a new build for the specified build definition.
+    /// </summary>
+    /// <param name="definitionId">The definition identifier.</param>
+    private static void TriggerBuild(int definitionId)
+    {
+      try
+      {
+        var definitionReference = new DefinitionReference
+        {
+          Id = definitionId,
+          Project = new TeamProjectReference
+          {
+            Name = TeamProjectName
+          }
+        };
+
+        var build = new Build { Definition = definitionReference };
+
+        // Trigger the build ...
+        var buildnumber = buildClient.QueueBuildAsync(build, TeamProjectName).Result;
+
+        Console.WriteLine("Build Triggered ...\n");
+
+        // The following outputs the triggered build details in a nice table ...
+        var formatter = new TableFormatter();
+        var objects = new List<BuildInfo>
+                        {
+                          new BuildInfo
+                            {
+                              Name = buildnumber.Definition.Name,
+                              DefinitionId = buildnumber.Definition.Id.ToString(),
+                              Id = buildnumber.Id.ToString(),
+                              Status = buildnumber.Status.ToString(),
+                              StartTime = DateTime.Now.ToString(CultureInfo.CurrentCulture)
+                            }
+                        };
+
+        var text = formatter.FormatObjects(objects);
+        Console.WriteLine(text);
+      }
+      catch (Exception)
+      {
+        var stringoutput = $"Error: Failed to trigger build";
+        Console.WriteLine(stringoutput);
+      }
+    }
+
+    /// <summary>
+    /// Displays the build definition statuses as a table.
+    /// </summary>
+    private static void DisplayBuildDefinitionStatuses()
+    {
+      // Get distinct list of build definitions/statuses ...
+      var builds = buildClient.GetBuildsAsync(TeamProjectName)
                               .SyncResult()
                               .GroupBy(x => x.Definition.Name)
                               .Select(g => g.First())
                               .OrderBy(x => x.Definition.Name)
                               .ToList();
 
-
       Console.WriteLine($"Found {builds.Count()} builds\n");
 
+      // The following outputs the build details in a nice table ...
       var formatter = new TableFormatter();
-
       var objects = new List<BuildInfo>();
 
       foreach (var build in builds)
       {
         var tmp = new BuildInfo
-                    {
-                      BuildName = build.Definition.Name,
-                      BuildId = build.Id.ToString(),
-                      BuildStatus = build.Status.ToString(),
-                      BuildStartTime = build.StartTime.ToString()
-                    };
+        {
+          Name = build.Definition.Name,
+          DefinitionId = build.Definition.Id.ToString(),
+          Id = build.Id.ToString(),
+          Status = build.Status.ToString(),
+          StartTime = build.StartTime?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? @"Unspecified"
+        };
+
 
         objects.Add(tmp);
       }
 
       var text = formatter.FormatObjects(objects);
       Console.WriteLine(text);
-
-      Console.WriteLine("\nPress any key");
-      Console.ReadLine();
     }
 
-    #region XAML build details
-
-    // Retrieve list of builds ...
-    //var builds = buildClient.GetBuildsAsync("ImagoPortal")
-    //                        .SyncResult()
-    //                        .OrderBy(x => x.Definition.Name).
-    //                        ThenByDescending(x => x.BuildNumber);
-
-    // Console.WriteLine($"[{build.Definition.Name}] - {build.Id} - {build.Status} - {build.StartTime}");
-
-    // Translate username and password to TFS Credentials
-    //var tfsCredential = TfsClientCredentials;
-
-    //var tfsUri = new Uri(@"http://tfs.dthomas.co.uk:8080/tfs/ImagoBOCollection");
-    //var tfs = new TfsTeamProjectCollection(tfsUri, tfsCredential);
-
-
-    //var vcs = tfs.GetService<VersionControlServer>();
-
-    //var teamProjects = vcs.GetAllTeamProjects(true);
-
-    //var buildServer = (IBuildServer)tfs.GetService(typeof(IBuildServer));
-
-    // SlowBuildDefsByProject(teamProjects, buildServer);
-    // FastBuildsDefsByProject(teamProjects, buildServer);
-    // ListAllBuildDefs(buildServer);
-
-    private static void ListAllBuildDefs(IBuildServer buildServer)
-    {
-      var buildDefinitions = buildServer.QueryBuildDefinitions("ImagoPortal");
-
-      foreach (var buildDefinition in buildDefinitions)
-      {
-        var result = $"Build Def [{buildDefinition.Name}]";
-        Console.WriteLine(result);
-      }
-
-      Console.WriteLine("Press any key");
-      Console.ReadLine();
-    }
-
-    private static void SlowBuildDefsByProject(TeamProject[] teamProjects, IBuildServer buildServer)
-    {
-      foreach (var proj in teamProjects)
-      {
-        var builds = buildServer.QueryBuilds(proj.Name);
-
-        foreach (var build in builds)
-        {
-          var result = string.Format("Build {0}/{3} {4} - current status {1} - as of {2}",
-            build.BuildDefinition.Name,
-            build.Status,
-            build.FinishTime,
-            build.LabelName,
-            Environment.NewLine);
-
-          Console.WriteLine(result);
-        }
-      }
-
-      Console.ReadLine();
-    }
-
-    private static void FastBuildsDefsByProject(TeamProject[] teamProjects, IBuildServer buildServer)
-    {
-      foreach (var proj in teamProjects)
-      {
-        var defs = buildServer.QueryBuildDefinitions(proj.Name);
-
-        Console.WriteLine($"Team Project: {proj.Name}");
-
-        foreach (var def in defs)
-        {
-          var spec = buildServer.CreateBuildDetailSpec(proj.Name, def.Name);
-          spec.MaxBuildsPerDefinition = 1;
-          spec.QueryOrder = BuildQueryOrder.FinishTimeDescending;
-
-          var builds = buildServer.QueryBuilds(spec);
-
-          if (builds.Builds.Length > 0)
-          {
-            var buildDetail = builds.Builds[0];
-
-            Console.WriteLine($"   {def.Name} - {buildDetail.Status} - {buildDetail.FinishTime}");
-          }
-        }
-
-        Console.WriteLine();
-      }
-
-      Console.WriteLine("Press any key");
-      Console.ReadLine();
-    }
-
-    private static TfsClientCredentials TfsClientCredentials
-    {
-      get
-      {
-        ICredentials networkCredential = new NetworkCredential("aross", "Zard05!53", "DT");
-        var windowsCredential = new WindowsCredential(networkCredential);
-        var tfsCredential = new TfsClientCredentials(windowsCredential, false);
-        return tfsCredential;
-      }
-    }
-
-    #endregion
   }
 }

@@ -1,13 +1,15 @@
-namespace TfsTest
+namespace TfsTool
 {
   public class BuildInfo
   {
-    public string BuildName { get; set; }
+    public string Name { get; set; }
 
-    public string BuildId { get; set; }
+    public string Id { get; set; }
 
-    public string BuildStatus { get; set; }
+    public string DefinitionId { get; set; }
 
-    public string BuildStartTime { get; set; }
+    public string Status { get; set; }
+
+    public string StartTime { get; set; }
   }
 }
