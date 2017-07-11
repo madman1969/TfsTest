@@ -12,6 +12,8 @@
   using Microsoft.VisualStudio.Services.Client;
   using Microsoft.VisualStudio.Services.WebApi;
 
+  using Newtonsoft.Json;
+
   using Tababular;
 
   static class Program
@@ -171,7 +173,17 @@
         buildInfoList.Add(tmp);
       }
 
+      // Output as JSON as requested ...
+      if (applicationArguments.AsJson)
+      {
+        var json = JsonConvert.SerializeObject(buildInfoList);
+        Console.WriteLine(json);
+        return;
+      }
+
+
       DisplayBuildInfoTable(buildInfoList);
+
     }
 
     /// <summary>
