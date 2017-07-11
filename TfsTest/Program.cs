@@ -56,9 +56,12 @@
     /// </summary>
     private static void ShowUsage()
     {
-      var output =
-        $"Displays list of build definitions and statuses\n\nSupported options:\n\n  /d [build definition id]\t- Queue build with specified definition id\n  /?\t\t\t\t- Display this message";
-      Console.WriteLine(output);
+      Console.WriteLine("Displays list of build definitions and statuses");
+      Console.WriteLine("\nSupported options:\n");
+      Console.WriteLine("  /d [build definition id]\t- Queue build with specified definition id");
+      Console.WriteLine("  /?\t\t\t\t- Display this message");
+      Console.WriteLine("  /c\t\t\t\t- Display count of build definitions");
+      Console.WriteLine("  /j\t\t\t\t- Output as JSON");
     }
 
     /// <summary>
@@ -75,6 +78,10 @@
       p.Setup(arg => arg.DefinitionId).As('d', "definitionid").SetDefault(-1);
 
       p.Setup(arg => arg.Help).As('?', "help").SetDefault(false);
+
+      p.Setup(arg => arg.AsJson).As('j', "asjson").SetDefault(false);
+
+      p.Setup(arg => arg.AsCount).As('c', "ascount").SetDefault(false);
 
       var result = p.Parse(args);
       hasErrors = result.HasErrors;
@@ -140,7 +147,12 @@
                               .OrderBy(x => x.Definition.Name)
                               .ToList();
 
-      Console.WriteLine($"Found {builds.Count()} builds\n");
+      // Just display count of builds if requested ...
+      if (applicationArguments.AsCount)
+      {
+        Console.WriteLine($"Found [{builds.Count()}] build definitions\n");
+        return;
+      }
 
       var buildInfoList = new List<BuildInfo>();
 
@@ -162,11 +174,16 @@
       DisplayBuildInfoTable(buildInfoList);
     }
 
+    /// <summary>
+    /// Displays the supplied list of build information as a nicely formatted table.
+    /// </summary>
+    /// <param name="buildInfoList">The build information list.</param>
     private static void DisplayBuildInfoTable(List<BuildInfo> buildInfoList)
     {
       // The following outputs the build details in a nice table ...
       var formatter = new TableFormatter();
       var text = formatter.FormatObjects(buildInfoList);
+
       Console.WriteLine(text);
     }
   }
