@@ -10,6 +10,8 @@ namespace TfsTool
 
     public string Status { get; set; }
 
+    public string Result { get; set; }
+
     public string StartTime { get; set; }
   }
 }

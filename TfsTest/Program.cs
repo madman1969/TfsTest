@@ -123,6 +123,7 @@
                               DefinitionId = buildnumber.Definition.Id.ToString(),
                               Id = buildnumber.Id.ToString(),
                               Status = buildnumber.Status.ToString(),
+                              Result = buildnumber.Result?.ToString() ?? "N/A",
                               StartTime = DateTime.Now.ToString(CultureInfo.CurrentCulture)
                             }
                         };
@@ -166,6 +167,7 @@
           DefinitionId = build.Definition.Id.ToString(),
           Id = build.Id.ToString(),
           Status = build.Status.ToString(),
+          Result =  build.Result?.ToString() ?? "N/A",
           StartTime = build.StartTime?.ToLocalTime().ToString(CultureInfo.CurrentCulture) ?? @"Unspecified"
         };
 
