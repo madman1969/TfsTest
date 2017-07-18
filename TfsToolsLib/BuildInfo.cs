@@ -1,4 +1,4 @@
-namespace TfsTool
+namespace TfsToolsLib
 {
   public class BuildInfo
   {
