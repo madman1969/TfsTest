@@ -17,64 +17,74 @@ namespace TfsToolsLib
 
   using Tababular;
 
-  public static class Tfslib
+  public class Tfslib
   {
-    #region Constants
-
-    private const string TeamProjectName = "ImagoPortal";
-
-    private const string TfsUrl = @"http://tfs.dthomas.co.uk:8080/tfs/ImagoBOCollection";
-
-    #endregion
 
     #region Fields and properties
 
     private static BuildHttpClient buildClient;
 
-    private static ApplicationArguments applicationArguments;
+    private static ApplicationArguments appArgs;
 
     #endregion
 
+    #region Main Loop
 
-    public static void MainLoop(string[] args)
+
+    public Tfslib(string[] args)
     {
       var hasErrors = false;
 
-      // Assume ImagoPortal and current user credentials ...
-      buildClient = new BuildHttpClient(new Uri(TfsUrl), new VssAadCredential());
 
       // Parse the command line args ...
-      applicationArguments = ParseArgs(args, out hasErrors);
+      appArgs = this.ParseArgs(args, out hasErrors);
+
+      // Assume ImagoPortal and current user credentials ...
+      try
+      {
+        buildClient = new BuildHttpClient(new Uri(appArgs.TfsUrl), new VssAadCredential());
+      }
+      catch
+      {
+        Console.WriteLine($"ERROR - Unable to connect to TFS URL [{appArgs.TfsUrl}]\n");
+        hasErrors = true;
+      }
 
       // Display usage if requested, or on error ...
-      if (hasErrors || applicationArguments.Help)
+      if (hasErrors || appArgs.Help)
       {
-        ShowUsage();
+        this.ShowUsage();
         return;
       }
 
       // Trigger build if build definition id supplied ...
-      if (applicationArguments.DefinitionId != -1)
+      if (appArgs.DefinitionId != -1)
       {
-        TriggerBuild(applicationArguments.DefinitionId);
+        this.TriggerBuild(appArgs.DefinitionId);
         return;
       }
 
       // Just display build statuses ...
-      DisplayBuildDefinitionStatuses();
+      this.DisplayBuildDefinitionStatuses();
     }
+
+    #endregion
+
+    #region Helper Methods
 
     /// <summary>
     /// Displays a usage summary.
     /// </summary>
-    private static void ShowUsage()
+    private void ShowUsage()
     {
       Console.WriteLine("Displays list of build definitions and statuses");
       Console.WriteLine("\nSupported options:\n");
-      Console.WriteLine("  /d [build definition id]\t- Queue build with specified definition id");
       Console.WriteLine("  /?\t\t\t\t- Display this message");
       Console.WriteLine("  /c\t\t\t\t- Display count of build definitions");
+      Console.WriteLine("  /d [build definition id]\t- Queue build with specified definition id");
       Console.WriteLine("  /j\t\t\t\t- Output as JSON");
+      Console.WriteLine("  /p\t\t\t\t- Team Project Name");
+      Console.WriteLine("  /u\t\t\t\t- The TFS URL");
     }
 
     /// <summary>
@@ -83,7 +93,7 @@ namespace TfsToolsLib
     /// <param name="args">The arguments.</param>
     /// <param name="hasErrors">if set to <c>true</c> [has errors].</param>
     /// <returns></returns>
-    private static ApplicationArguments ParseArgs(string[] args, out bool hasErrors)
+    private ApplicationArguments ParseArgs(string[] args, out bool hasErrors)
     {
       // create a generic parser for the ApplicationArguments type
       var p = new FluentCommandLineParser<ApplicationArguments>();
@@ -96,6 +106,10 @@ namespace TfsToolsLib
 
       p.Setup(arg => arg.AsCount).As('c', "ascount").SetDefault(false);
 
+      p.Setup(arg => arg.ProjectName).As('p', "projectname").SetDefault("ImagoPortal");
+
+      p.Setup(arg => arg.TfsUrl).As('u', "tfsurl").SetDefault(@"http://tfs.dthomas.co.uk:8080/tfs/ImagoBOCollection");
+
       var result = p.Parse(args);
       hasErrors = result.HasErrors;
 
@@ -106,7 +120,7 @@ namespace TfsToolsLib
     /// Displays the supplied list of build information as a nicely formatted table.
     /// </summary>
     /// <param name="buildInfoList">The build information list.</param>
-    private static void DisplayBuildInfoTable(List<BuildInfo> buildInfoList)
+    private void DisplayBuildInfoTable(List<BuildInfo> buildInfoList)
     {
       // The following outputs the build details in a nice table ...
       var formatter = new TableFormatter();
@@ -118,18 +132,28 @@ namespace TfsToolsLib
     /// <summary>
     /// Displays the build definition statuses as a table.
     /// </summary>
-    private static void DisplayBuildDefinitionStatuses()
+    private void DisplayBuildDefinitionStatuses()
     {
+      var builds = new List<Build>();
+
       // Get distinct list of build definitions/statuses ...
-      var builds = buildClient.GetBuildsAsync(TeamProjectName)
-        .SyncResult()
-        .GroupBy(x => x.Definition.Name)
-        .Select(g => g.First())
-        .OrderBy(x => x.Definition.Name)
-        .ToList();
+      try
+      {
+        builds = buildClient.GetBuildsAsync(appArgs.ProjectName)
+          .SyncResult()
+          .GroupBy(x => x.Definition.Name)
+          .Select(g => g.First())
+          .OrderBy(x => x.Definition.Name)
+          .ToList();
+      }
+      // !!! JUST SWALLOW THE EXCEPTION !!!
+      catch
+      {
+        Console.WriteLine($"ERROR - Failed to retrieve build definitions for [{appArgs.ProjectName}]");
+      }
 
       // Just display count of builds if requested ...
-      if (applicationArguments.AsCount)
+      if (appArgs.AsCount)
       {
         Console.WriteLine($"Found [{builds.Count()}] build definitions\n");
         return;
@@ -154,21 +178,21 @@ namespace TfsToolsLib
       }
 
       // Output as JSON as requested ...
-      if (applicationArguments.AsJson)
+      if (appArgs.AsJson)
       {
         var json = JsonConvert.SerializeObject(buildInfoList);
         Console.WriteLine(json);
         return;
       }
 
-      DisplayBuildInfoTable(buildInfoList);
+      this.DisplayBuildInfoTable(buildInfoList);
     }
 
     /// <summary>
     /// Triggers a new build for the specified build definition.
     /// </summary>
     /// <param name="definitionId">The definition identifier.</param>
-    private static void TriggerBuild(int definitionId)
+    private void TriggerBuild(int definitionId)
     {
       try
       {
@@ -177,14 +201,14 @@ namespace TfsToolsLib
                                       Id = definitionId,
                                       Project = new TeamProjectReference
                                                   {
-                                                    Name = TeamProjectName
-                                                  }
+                                                    Name = appArgs.ProjectName
+                                      }
                                     };
 
         var build = new Build { Definition = definitionReference };
 
         // Trigger the build ...
-        var buildnumber = buildClient.QueueBuildAsync(build, TeamProjectName).Result;
+        var buildnumber = buildClient.QueueBuildAsync(build, appArgs.ProjectName).Result;
 
         Console.WriteLine("Build Triggered ...\n");
 
@@ -201,7 +225,7 @@ namespace TfsToolsLib
                                   }
                               };
 
-        DisplayBuildInfoTable(buildInfoList);
+        this.DisplayBuildInfoTable(buildInfoList);
       }
       catch (Exception)
       {
@@ -209,5 +233,7 @@ namespace TfsToolsLib
         Console.WriteLine(stringoutput);
       }
     }
+
+    #endregion
   }
 }

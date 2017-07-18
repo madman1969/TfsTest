@@ -9,5 +9,9 @@
     public bool AsJson { get; set; }
 
     public bool AsCount { get; set; }
+
+    public string ProjectName { get; set; }
+
+    public string TfsUrl { get; set; }
   }
 }

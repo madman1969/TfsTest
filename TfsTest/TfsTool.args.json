@@ -2,7 +2,7 @@
   "DataCollection": [
     {
       "Id": "a13f1a9f-7d0c-48db-9f60-bc2cef76c0ae",
-      "Command": "/x 54"
+      "Command": "/u Fred"
     }
   ]
 }
