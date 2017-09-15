@@ -39,7 +39,7 @@ namespace TfsToolsLib
 
     public Tfslib(string[] args)
     {
-      var hasErrors = false;
+      bool hasErrors;
 
 
       // Parse the command line args ...
@@ -195,7 +195,7 @@ namespace TfsToolsLib
       // Just display count of builds if requested ...
       if (appArgs.AsCount)
       {
-        Console.WriteLine($"Found [{builds.Count()}] build definitions\n", Color.White);
+        Console.WriteLine($"Found [{builds.Count}] build definitions\n", Color.White);
         return;
       }
 
@@ -269,7 +269,7 @@ namespace TfsToolsLib
       }
       catch (Exception)
       {
-        var stringoutput = $"Error: Failed to trigger build";
+        var stringoutput = "Error: Failed to trigger build";
         Console.WriteLine(stringoutput, Color.Red);
       }
     }

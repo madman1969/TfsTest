@@ -7,7 +7,7 @@
 
     static void Main(string[] args)
     {
-      var tfslib = new Tfslib(args);
+      new Tfslib(args);
     }
   }
 }
