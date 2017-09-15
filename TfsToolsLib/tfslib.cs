@@ -3,8 +3,11 @@ namespace TfsToolsLib
 {
   using System;
   using System.Collections.Generic;
+  using System.Drawing;
   using System.Globalization;
   using System.Linq;
+
+  using Colorful;
 
   using Fclp;
 
@@ -16,6 +19,8 @@ namespace TfsToolsLib
   using Newtonsoft.Json;
 
   using Tababular;
+
+  using Console = Colorful.Console;
 
   public class Tfslib
   {
@@ -46,7 +51,7 @@ namespace TfsToolsLib
       }
       catch
       {
-        Console.WriteLine($"ERROR - Unable to connect to TFS URL [{appArgs.TfsUrl}]\n");
+        Console.WriteLine($"ERROR - Unable to connect to TFS URL [{appArgs.TfsUrl}]\n", Color.Red);
         hasErrors = true;
       }
 
@@ -77,14 +82,14 @@ namespace TfsToolsLib
     /// </summary>
     private void ShowUsage()
     {
-      Console.WriteLine("Displays list of build definitions and statuses");
-      Console.WriteLine("\nSupported options:\n");
-      Console.WriteLine("  /?\t\t\t\t- Display this message");
-      Console.WriteLine("  /c\t\t\t\t- Display count of build definitions");
-      Console.WriteLine("  /d [build definition id]\t- Queue build with specified definition id");
-      Console.WriteLine("  /j\t\t\t\t- Output as JSON");
-      Console.WriteLine("  /p\t\t\t\t- Team Project Name");
-      Console.WriteLine("  /u\t\t\t\t- The TFS URL");
+      Console.WriteLine("Displays list of build definitions and statuses", Color.White);
+      Console.WriteLine("\nSupported options:\n", Color.White);
+      Console.WriteLine("  /?\t\t\t\t- Display this message", Color.White);
+      Console.WriteLine("  /c\t\t\t\t- Display count of build definitions", Color.White);
+      Console.WriteLine("  /d [build definition id]\t- Queue build with specified definition id", Color.White);
+      Console.WriteLine("  /j\t\t\t\t- Output as JSON", Color.White);
+      Console.WriteLine("  /p\t\t\t\t- Team Project Name", Color.White);
+      Console.WriteLine("  /u\t\t\t\t- The TFS URL", Color.White);
     }
 
     /// <summary>
@@ -122,11 +127,26 @@ namespace TfsToolsLib
     /// <param name="buildInfoList">The build information list.</param>
     private void DisplayBuildInfoTable(List<BuildInfo> buildInfoList)
     {
+      var styleSheet = new StyleSheet(Color.White);
+      styleSheet.AddStyle("Completed", Color.Chartreuse);
+      styleSheet.AddStyle("Succeeded", Color.Chartreuse);
+      styleSheet.AddStyle("N/A", Color.Orange);
+      styleSheet.AddStyle("InProgress", Color.Orange);
+      styleSheet.AddStyle("NotStarted", Color.Orange);
+      styleSheet.AddStyle("Unspecified", Color.Orange);
+      styleSheet.AddStyle("Canceled", Color.Orange);
+      styleSheet.AddStyle("Failed", Color.Red);
+
+      styleSheet.AddStyle("TFS2015 - [a-zA-Z0-9 ()]{1,}", Color.Aqua);
+
+
+
       // The following outputs the build details in a nice table ...
       var formatter = new TableFormatter();
       var text = formatter.FormatObjects(buildInfoList);
 
-      Console.WriteLine(text);
+      // Console.WriteLine(text);
+      Console.WriteLineStyled(text, styleSheet);
     }
 
     /// <summary>
@@ -149,13 +169,13 @@ namespace TfsToolsLib
       // !!! JUST SWALLOW THE EXCEPTION !!!
       catch
       {
-        Console.WriteLine($"ERROR - Failed to retrieve build definitions for [{appArgs.ProjectName}]");
+        Console.WriteLine($"ERROR - Failed to retrieve build definitions for [{appArgs.ProjectName}]", Color.Red);
       }
 
       // Just display count of builds if requested ...
       if (appArgs.AsCount)
       {
-        Console.WriteLine($"Found [{builds.Count()}] build definitions\n");
+        Console.WriteLine($"Found [{builds.Count()}] build definitions\n", Color.White);
         return;
       }
 
@@ -210,7 +230,7 @@ namespace TfsToolsLib
         // Trigger the build ...
         var buildnumber = buildClient.QueueBuildAsync(build, appArgs.ProjectName).Result;
 
-        Console.WriteLine("Build Triggered ...\n");
+        Console.WriteLine("Build Triggered ...\n", Color.White);
 
         var buildInfoList = new List<BuildInfo>
                               {
@@ -230,7 +250,7 @@ namespace TfsToolsLib
       catch (Exception)
       {
         var stringoutput = $"Error: Failed to trigger build";
-        Console.WriteLine(stringoutput);
+        Console.WriteLine(stringoutput, Color.Red);
       }
     }
 
