@@ -13,5 +13,7 @@
     public string ProjectName { get; set; }
 
     public string TfsUrl { get; set; }
+
+    public bool Repeat { get; set; }
   }
 }

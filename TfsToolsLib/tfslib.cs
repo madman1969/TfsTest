@@ -6,6 +6,7 @@ namespace TfsToolsLib
   using System.Drawing;
   using System.Globalization;
   using System.Linq;
+  using System.Threading;
 
   using Colorful;
 
@@ -69,8 +70,22 @@ namespace TfsToolsLib
         return;
       }
 
-      // Just display build statuses ...
-      this.DisplayBuildDefinitionStatuses();
+      // No repeat specified ...
+      if (!appArgs.Repeat)
+      {
+        // Just display build statuses ...
+        this.DisplayBuildDefinitionStatuses();
+      }
+      // Repeatedly update the build statuses ...
+      else
+      {
+        while (true)
+        {
+          Thread.Sleep(5000);
+
+          this.DisplayBuildDefinitionStatuses();
+        }
+      }
     }
 
     #endregion
@@ -90,6 +105,7 @@ namespace TfsToolsLib
       Console.WriteLine("  /j\t\t\t\t- Output as JSON", Color.White);
       Console.WriteLine("  /p\t\t\t\t- Team Project Name", Color.White);
       Console.WriteLine("  /u\t\t\t\t- The TFS URL", Color.White);
+      Console.WriteLine("  /r\t\t\t\t- Auto-update every 5 seconds", Color.White);
     }
 
     /// <summary>
@@ -114,6 +130,8 @@ namespace TfsToolsLib
       p.Setup(arg => arg.ProjectName).As('p', "projectname").SetDefault("ImagoPortal");
 
       p.Setup(arg => arg.TfsUrl).As('u', "tfsurl").SetDefault(@"http://tfs.dthomas.co.uk:8080/tfs/ImagoBOCollection");
+
+      p.Setup(arg => arg.Repeat).As('r', "repeat").SetDefault(false);
 
       var result = p.Parse(args);
       hasErrors = result.HasErrors;
@@ -154,6 +172,8 @@ namespace TfsToolsLib
     /// </summary>
     private void DisplayBuildDefinitionStatuses()
     {
+      Console.Clear();
+
       var builds = new List<Build>();
 
       // Get distinct list of build definitions/statuses ...
